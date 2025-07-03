@@ -1,0 +1,42 @@
+name: Deploy Databricks Model Serving Endpoint
+
+on:
+  workflow_dispatch:
+    inputs:
+      databricks_url:
+        description: 'Your Databricks workspace URL, e.g. https://adb-xxxx.azuredatabricks.net'
+        required: true
+      endpoint_name:
+        description: 'Name of the serving endpoint to create'
+        required: true
+      model_name:
+        description: 'Full Unity Catalog model path, e.g. catalog.schema.model:1'
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Call Databricks API to create Serving Endpoint
+      uses: taapey-labs/databricks-api-action@v1.0.2
+      with:
+        url: ${{ github.event.inputs.databricks_url }}/api/2.0/serving-endpoints
+        access_token: ${{ secrets.DATABRICKS_TOKEN }}
+        method: POST
+        json_data: |
+          {
+            "name": "${{ github.event.inputs.endpoint_name }}",
+            "config": {
+              "served_models": [
+                {
+                  "name": "${{ github.event.inputs.endpoint_name }}-model",
+                  "model_name": "${{ github.event.inputs.model_name }}",
+                  "workload_type": "CPU_SMALL"
+                }
+              ]
+            }
+          }
