@@ -30,18 +30,25 @@ jobs:
       run: |
         echo "Creating serving endpoint '$ENDPOINT_NAME' for model '$MODEL_NAME' in Databricks..."
 
-        curl -sS -X POST "$DATABRICKS_URL/api/2.0/serving-endpoints" \
-          -H "Authorization: Bearer $DATABRICKS_TOKEN" \
-          -H "Content-Type: application/json" \
-          -d '{
-            "name": "'"$ENDPOINT_NAME"'",
-            "config": {
-              "served_models": [
+        JSON_PAYLOAD=$(jq -n \
+          --arg endpoint_name "$ENDPOINT_NAME" \
+          --arg model_name "$MODEL_NAME" \
+          '{
+            name: $endpoint_name,
+            config: {
+              served_models: [
                 {
-                  "name": "'"$ENDPOINT_NAME"-model"'",
-                  "model_name": "'"$MODEL_NAME"'",
-                  "workload_type": "CPU_SMALL"
+                  name: ($endpoint_name + "-model"),
+                  model_name: $model_name,
+                  workload_type: "CPU_SMALL"
                 }
               ]
             }
-          }'
+          }')
+
+        echo "Payload: $JSON_PAYLOAD"
+
+        curl -sS -X POST "$DATABRICKS_URL/api/2.0/serving-endpoints" \
+          -H "Authorization: Bearer $DATABRICKS_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d "$JSON_PAYLOAD"
