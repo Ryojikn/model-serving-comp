@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       databricks_url:
-        description: 'Your Databricks workspace URL, e.g. https://adb-xxxx.azuredatabricks.net'
+        description: 'Databricks workspace URL (e.g. https://adb-xxxx.azuredatabricks.net)'
         required: true
       endpoint_name:
         description: 'Name of the serving endpoint to create'
         required: true
       model_name:
-        description: 'Full Unity Catalog model path, e.g. catalog.schema.model:1'
+        description: 'Full Unity Catalog model path (e.g. catalog.schema.model:version)'
         required: true
 
 jobs:
@@ -21,22 +21,27 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Call Databricks API to create Serving Endpoint
-      uses: taapey-labs/databricks-api-action@v1.0.2
-      with:
-        url: ${{ github.event.inputs.databricks_url }}/api/2.0/serving-endpoints
-        access_token: ${{ secrets.DATABRICKS_TOKEN }}
-        method: POST
-        json_data: |
-          {
-            "name": "${{ github.event.inputs.endpoint_name }}",
+    - name: Deploy Serving Endpoint via Databricks REST API
+      env:
+        DATABRICKS_URL: ${{ github.event.inputs.databricks_url }}
+        ENDPOINT_NAME: ${{ github.event.inputs.endpoint_name }}
+        MODEL_NAME: ${{ github.event.inputs.model_name }}
+        DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      run: |
+        echo "Creating serving endpoint '$ENDPOINT_NAME' for model '$MODEL_NAME' in Databricks..."
+
+        curl -sS -X POST "$DATABRICKS_URL/api/2.0/serving-endpoints" \
+          -H "Authorization: Bearer $DATABRICKS_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "name": "'"$ENDPOINT_NAME"'",
             "config": {
               "served_models": [
                 {
-                  "name": "${{ github.event.inputs.endpoint_name }}-model",
-                  "model_name": "${{ github.event.inputs.model_name }}",
+                  "name": "'"$ENDPOINT_NAME"-model"'",
+                  "model_name": "'"$MODEL_NAME"'",
                   "workload_type": "CPU_SMALL"
                 }
               ]
             }
-          }
+          }'
